@@ -98,15 +98,25 @@ int main(int argc, char* argv[]) {
 				struct tcpheader *tcp = (struct tcpheader*)(packet + sizeof(struct ethheader) + ip->iph_ihl);
 
 				int tcp_header_len = TH_OFF(tcp) * 4;
-				char* data = (char *)(packet + sizeof(struct ethheader) + ip->iph_ihl + tcp_header_len);
+				char *payload = (char *)(packet + sizeof(struct ethheader) + ip->iph_ihl + tcp_header_len);
 
-				printf("src mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth->ether_shost[0], eth->ether_shost[1], eth->ether_shost[2], eth->ether_shost[3], eth->ether_shost[4], eth->ether_shost[5]);
-				printf("dst mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth->ether_dhost[0], eth->ether_dhost[1], eth->ether_dhost[2], eth->ether_dhost[3], eth->ether_dhost[4], eth->ether_dhost[5]);
-				printf("src ip: %s\n", inet_ntoa(ip->iph_sourceip));
+				printf("==================================================\n");
+				printf("src mac: %o2X:%o2X:%o2X:%o2X:%o2X:%o2X\n", eth->ether_shost[0], eth->ether_shost[1], eth->ether_shost[2], eth->ether_shost[3], eth->ether_shost[4], eth->ether_shost[5]);
+				printf("dst mac: %o2X:%o2X:%o2X:%o2X:%o2X:%o2X\n", eth->ether_dhost[0], eth->ether_dhost[1], eth->ether_dhost[2], eth->ether_dhost[3], eth->ether_dhost[4], eth->ether_dhost[5]);
+				printf("\nsrc ip: %s\n", inet_ntoa(ip->iph_sourceip));
 				printf("dst ip: %s\n", inet_ntoa(ip->iph_destip));
-				printf("src port: %d\n", ntohs(tcp->tcp_sport));
+				printf("\nsrc port: %d\n", ntohs(tcp->tcp_sport));
 				printf("dst port: %d\n", ntohs(tcp->tcp_dport));
-				printf("data\n");
+				printf("\ndata\n");
+
+				int payload_len = header->len - sizeof(struct ethheader) - ip->iph_ihl - tcp_header_len;
+				int print_len = payload_len > 20 ? 20 : payload_len; // 출력길이 20byte로 제한
+
+				printf("--------------------------------------------------\n");
+            	for (int i = 0; i < print_len; i++) {
+                	printf("%c", isprint(payload[i]) ? payload[i] : '.');
+				}
+				printf("\n");
 			}
 		}
 
