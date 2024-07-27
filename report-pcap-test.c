@@ -18,14 +18,14 @@ Param param = {
 	.dev_ = NULL
 };
 
-struct ethheader {
+struct eth_hdr {
     u_char  ether_dhost[6];    /* destination host address */
     u_char  ether_shost[6];    /* source host address */
     u_short ether_type;        /* IP? ARP? RARP? etc */
 };
 
 /* IP Header */
-struct ipheader {
+struct ip_hdr {
   unsigned char      iph_ihl:4, //IP header length
                      iph_ver:4; //IP version
   unsigned char      iph_tos; //Type of service
@@ -41,7 +41,7 @@ struct ipheader {
 };
 
 /* TCP Header */
-struct tcpheader {
+struct tcp_hdr {
     u_short tcp_sport;               /* source port */
     u_short tcp_dport;               /* destination port */
     u_int   tcp_seq;                 /* sequence number */
@@ -89,30 +89,30 @@ int main(int argc, char* argv[]) {
 		const u_char* packet;
 		int res = pcap_next_ex(pcap, &header, &packet);
 
-		struct ethheader *eth = (struct ethheader *)packet;
+		struct eth_hdr *eth = (struct eth_hdr *)packet;
 
 		if (ntohs(eth->ether_type) == 0x0800) { // 0x0800 is IP type
-			struct ipheader *ip = (struct ipheader *)(packet + sizeof(struct ethheader)); 
+			struct ip_hdr *ip = (struct ip_hdr *)(packet + sizeof(struct eth_hdr)); 
 
 			if (ip->iph_protocol == IPPROTO_TCP) {
-				struct tcpheader *tcp = (struct tcpheader*)(packet + sizeof(struct ethheader) + ip->iph_ihl);
+				struct tcp_hdr *tcp = (struct tcp_hdr*)(packet + sizeof(struct eth_hdr) + ip->iph_ihl);
 
 				int tcp_header_len = TH_OFF(tcp) * 4;
-				char *payload = (char *)(packet + sizeof(struct ethheader) + ip->iph_ihl + tcp_header_len);
+				char *payload = (char *)(packet + sizeof(struct eth_hdr) + ip->iph_ihl + tcp_header_len);
 
 				printf("==================================================\n");
-				printf("src mac: %o2X:%o2X:%o2X:%o2X:%o2X:%o2X\n", eth->ether_shost[0], eth->ether_shost[1], eth->ether_shost[2], eth->ether_shost[3], eth->ether_shost[4], eth->ether_shost[5]);
-				printf("dst mac: %o2X:%o2X:%o2X:%o2X:%o2X:%o2X\n", eth->ether_dhost[0], eth->ether_dhost[1], eth->ether_dhost[2], eth->ether_dhost[3], eth->ether_dhost[4], eth->ether_dhost[5]);
+				printf("src mac: %02X:%02X:%02X:%02X:%02X:%02X\n", eth->ether_shost[0], eth->ether_shost[1], eth->ether_shost[2], eth->ether_shost[3], eth->ether_shost[4], eth->ether_shost[5]);
+				printf("dst mac: %02X:%02X:%02X:%02X:%02X:%02X\n", eth->ether_dhost[0], eth->ether_dhost[1], eth->ether_dhost[2], eth->ether_dhost[3], eth->ether_dhost[4], eth->ether_dhost[5]);
 				printf("\nsrc ip: %s\n", inet_ntoa(ip->iph_sourceip));
 				printf("dst ip: %s\n", inet_ntoa(ip->iph_destip));
 				printf("\nsrc port: %d\n", ntohs(tcp->tcp_sport));
 				printf("dst port: %d\n", ntohs(tcp->tcp_dport));
 				printf("\ndata\n");
 
-				int payload_len = header->len - sizeof(struct ethheader) - ip->iph_ihl - tcp_header_len;
+				int payload_len = header->len - sizeof(struct eth_hdr) - ip->iph_ihl - tcp_header_len;
 				int print_len = payload_len > 20 ? 20 : payload_len; // 출력길이 20byte로 제한
 
-				printf("--------------------------------------------------\n");
+				printf("==================================================\n");
             	for (int i = 0; i < print_len; i++) {
                 	printf("%c", isprint(payload[i]) ? payload[i] : '.');
 				}
