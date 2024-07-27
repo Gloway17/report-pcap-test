@@ -1,8 +1,8 @@
 LDLIBS += -lpcap
 
-all: pcap-test
+all: report-pcap-test
 
-pcap-test: pcap-test.c
+pcap-test: report-pcap-test.c
 
 clean:
-	rm -f pcap-test *.o
+	rm -f report-pcap-test *.o
