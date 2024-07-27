@@ -2,7 +2,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "libnet-headers.h"
+#include <arpa/inet.h>
+#include <ctype.h>
 
 void usage() {
 	printf("syntax: pcap-test <interface>\n");
@@ -15,6 +16,51 @@ typedef struct {
 
 Param param = {
 	.dev_ = NULL
+};
+
+struct ethheader {
+    u_char  ether_dhost[6];    /* destination host address */
+    u_char  ether_shost[6];    /* source host address */
+    u_short ether_type;        /* IP? ARP? RARP? etc */
+};
+
+/* IP Header */
+struct ipheader {
+  unsigned char      iph_ihl:4, //IP header length
+                     iph_ver:4; //IP version
+  unsigned char      iph_tos; //Type of service
+  unsigned short int iph_len; //IP Packet length (data + header)
+  unsigned short int iph_ident; //Identification
+  unsigned short int iph_flag:3, //Fragmentation flags
+                     iph_offset:13; //Flags offset
+  unsigned char      iph_ttl; //Time to Live
+  unsigned char      iph_protocol; //Protocol type
+  unsigned short int iph_chksum; //IP datagram checksum
+  struct  in_addr    iph_sourceip; //Source IP address
+  struct  in_addr    iph_destip;   //Destination IP address
+};
+
+/* TCP Header */
+struct tcpheader {
+    u_short tcp_sport;               /* source port */
+    u_short tcp_dport;               /* destination port */
+    u_int   tcp_seq;                 /* sequence number */
+    u_int   tcp_ack;                 /* acknowledgement number */
+    u_char  tcp_offx2;               /* data offset, rsvd */
+#define TH_OFF(th)      (((th)->tcp_offx2 & 0xf0) >> 4)
+    u_char  tcp_flags;
+#define TH_FIN  0x01
+#define TH_SYN  0x02
+#define TH_RST  0x04
+#define TH_PUSH 0x08
+#define TH_ACK  0x10
+#define TH_URG  0x20
+#define TH_ECE  0x40
+#define TH_CWR  0x80
+#define TH_FLAGS        (TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG|TH_ECE|TH_CWR)
+    u_short tcp_win;                 /* window */
+    u_short tcp_sum;                 /* checksum */
+    u_short tcp_urp;                 /* urgent pointer */
 };
 
 bool parse(Param* param, int argc, char* argv[]) {
@@ -43,14 +89,24 @@ int main(int argc, char* argv[]) {
 		const u_char* packet;
 		int res = pcap_next_ex(pcap, &header, &packet);
 
-		struct libnet_ethernet_hdr* eth = (struct libnet_ethernet_hdr*)packet;
-		if (ntohs(eth->ether_type) == 0x0800) {
-			struct libnet_ipv4_hdr* ip = (struct libnet_ipv4_hdr*)(packet + sizeof(struct libnet_ethernet_hdr));
+		struct ethheader *eth = (struct ethheader *)packet;
 
-			if (ntohs(ip->ip_p) == 0x06) {
-				struct libnet_tcp_hdr* tcp = (struct libnet_tcp_hdr*)(ip + sizeof(struct libnet_ipv4_hdr));
+		if (ntohs(eth->ether_type) == 0x0800) { // 0x0800 is IP type
+			struct ipheader *ip = (struct ipheader *)(packet + sizeof(struct ethheader)); 
 
-				char* data = (char *)(tcp + sizeof(struct libnet_tcp_hdr));
+			if (ip->iph_protocol == IPPROTO_TCP) {
+				struct tcpheader *tcp = (struct tcpheader*)(packet + sizeof(struct ethheader) + ip->iph_ihl);
+
+				int tcp_header_len = TH_OFF(tcp) * 4;
+				char* data = (char *)(packet + sizeof(struct ethheader) + ip->iph_ihl + tcp_header_len);
+
+				printf("src mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth->ether_shost[0], eth->ether_shost[1], eth->ether_shost[2], eth->ether_shost[3], eth->ether_shost[4], eth->ether_shost[5]);
+				printf("dst mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth->ether_dhost[0], eth->ether_dhost[1], eth->ether_dhost[2], eth->ether_dhost[3], eth->ether_dhost[4], eth->ether_dhost[5]);
+				printf("src ip: %s\n", inet_ntoa(ip->iph_sourceip));
+				printf("dst ip: %s\n", inet_ntoa(ip->iph_destip));
+				printf("src port: %d\n", ntohs(tcp->tcp_sport));
+				printf("dst port: %d\n", ntohs(tcp->tcp_dport));
+				printf("data\n");
 			}
 		}
 
@@ -60,13 +116,6 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 		//printf("%u bytes captured\n", header->caplen);
-		printf("src mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth->ether_shost[0], eth->ether_shost[1], eth->ether_shost[2], eth->ether_shost[3], eth->ether_shost[4], eth->ether_shost[5]);
-		printf("dst mac: %02x:%02x:%02x:%02x:%02x:%02x\n", eth->ether_dhost[0], eth->ether_dhost[1], eth->ether_dhost[2], eth->ether_dhost[3], eth->ether_dhost[4], eth->ether_dhost[5]);
-		printf("src ip: %s\n", inet_ntoa(ip->ip_src));
-		printf("dst ip: %s\n", inet_ntoa(ip->ip_dst));
-		printf("src port: %d\n", ntohs(tcp->th_sport));
-		printf("dst port: %d\n", ntohs(tcp->th_dport));
-		printf("data\n");
 	}
 
 	pcap_close(pcap);
